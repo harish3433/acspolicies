@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/your-org/acs-policies.git
+    repoURL: https://github.com/harish3433/acspolicies.git
     targetRevision: HEAD
     path: policies
   destination:
