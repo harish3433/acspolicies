@@ -1,0 +1,32 @@
+---
+- name: ACS Policy Testing
+  hosts: localhost
+  vars:
+    acs_central_url: "{{ acs_central_url }}"
+    acs_token: "{{ acs_token }}"
+    
+  tasks:
+    - name: Validate policy syntax
+      shell: |
+        for file in policies/{{ environment }}/*.yml; do
+          python -c "import yaml; yaml.safe_load(open('$file'))" || exit 1
+        done
+      register: syntax_check
+      
+    - name: Test policy dry-run
+      uri:
+        url: "{{ acs_central_url }}/v1/policies/dry-run"
+        headers:
+          Authorization: "Bearer {{ acs_token }}"
+          Content-Type: application/json
+        method: POST
+        body: "{{ lookup('file', item) | from_yaml | to_json }}"
+      with_fileglob:
+        - "./policies/{{ environment }}/*.yml"
+      register: dry_run_results
+      
+    - name: Fail on policy validation errors
+      fail:
+        msg: "Policy validation failed: {{ item.json.error }}"
+      when: item.status != 200
+      loop: "{{ dry_run_results.results }}"

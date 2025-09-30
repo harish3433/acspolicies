@@ -1,0 +1,28 @@
+name: ACS Policy Sync
+on:
+  push:
+    branches: [main]
+    paths: ['policies/**']
+  pull_request:
+    paths: ['policies/**']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Ansible
+        run: pip install ansible
+      - name: Test policies
+        run: ansible-playbook policy-test.yml -e "environment=dev" -e "acs_token=${{ secrets.ACS_TOKEN }}"
+        
+  deploy-dev:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Ansible
+        run: pip install ansible
+      - name: Deploy to dev
+        run: ansible-playbook acs-policy-gitops.yml -e "environment=dev" -e "acs_token=${{ secrets.ACS_TOKEN }}"

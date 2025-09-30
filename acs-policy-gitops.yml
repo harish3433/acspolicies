@@ -1,0 +1,61 @@
+---
+- name: ACS Policy GitOps Management
+  hosts: localhost
+  vars:
+    acs_central_url: "{{ acs_central_url | default('https://central.stackrox.svc.cluster.local') }}"
+    acs_token: "{{ acs_token }}"
+    git_repo: "{{ policy_git_repo }}"
+    environment: "{{ env | default('dev') }}"
+    
+  tasks:
+    - name: Clone policy repository
+      git:
+        repo: "{{ git_repo }}"
+        dest: ./policies
+        version: main
+        
+    - name: Get existing policies
+      uri:
+        url: "{{ acs_central_url }}/v1/policies"
+        headers:
+          Authorization: "Bearer {{ acs_token }}"
+        method: GET
+      register: existing_policies
+      
+    - name: Apply policy configurations
+      uri:
+        url: "{{ acs_central_url }}/v1/policies"
+        headers:
+          Authorization: "Bearer {{ acs_token }}"
+          Content-Type: application/json
+        method: POST
+        body: "{{ lookup('file', item) | from_yaml | to_json }}"
+        status_code: [200, 409]
+      with_fileglob:
+        - "./policies/{{ environment }}/*.yml"
+        
+    - name: Update existing policies
+      uri:
+        url: "{{ acs_central_url }}/v1/policies/{{ (lookup('file', item) | from_yaml).id }}"
+        headers:
+          Authorization: "Bearer {{ acs_token }}"
+          Content-Type: application/json
+        method: PUT
+        body: "{{ lookup('file', item) | from_yaml | to_json }}"
+      with_fileglob:
+        - "./policies/{{ environment }}/*.yml"
+      when: (lookup('file', item) | from_yaml).id in (existing_policies.json.policies | map(attribute='id'))
+      
+    - name: Enable/disable policies by environment
+      uri:
+        url: "{{ acs_central_url }}/v1/policies/{{ item.id }}"
+        headers:
+          Authorization: "Bearer {{ acs_token }}"
+          Content-Type: application/json
+        method: PUT
+        body: |
+          {
+            "id": "{{ item.id }}",
+            "disabled": {{ item.disabled | default(false) | bool }}
+          }
+      loop: "{{ (lookup('file', 'policies/' + environment + '/policy-states.yml') | from_yaml).policies }}"

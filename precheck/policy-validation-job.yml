@@ -1,0 +1,39 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: acs-policy-validation
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  template:
+    spec:
+      containers:
+      - name: validate
+        image: python:3.9-slim
+        command: ["/bin/sh"]
+        args:
+        - -c
+        - |
+          pip install pyyaml requests
+          python /scripts/validate-policies.py
+        volumeMounts:
+        - name: validation-script
+          mountPath: /scripts
+        - name: policies
+          mountPath: /policies
+        env:
+        - name: ACS_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: acs-token
+              key: token
+      volumes:
+      - name: validation-script
+        configMap:
+          name: policy-validator
+      - name: policies
+        configMap:
+          name: acs-policies-dev
+      restartPolicy: Never
+  backoffLimit: 1

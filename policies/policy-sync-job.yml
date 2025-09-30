@@ -1,0 +1,39 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: acs-policy-sync
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+spec:
+  template:
+    spec:
+      containers:
+      - name: policy-sync
+        image: quay.io/ansible/ansible-runner:latest
+        env:
+        - name: ACS_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: acs-token
+              key: token
+        - name: ACS_CENTRAL_URL
+          value: "https://central-stackrox.apps.cluster.local"
+        volumeMounts:
+        - name: policies
+          mountPath: /policies
+        - name: playbook
+          mountPath: /runner
+        command: ["/bin/sh"]
+        args:
+        - -c
+        - |
+          cd /runner
+          ansible-playbook acs-policy-sync.yml -e "acs_token=$ACS_TOKEN" -e "acs_central_url=$ACS_CENTRAL_URL"
+      volumes:
+      - name: policies
+        configMap:
+          name: acs-policies-dev
+      - name: playbook
+        configMap:
+          name: ansible-playbook
+      restartPolicy: OnFailure
