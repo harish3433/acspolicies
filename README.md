@@ -1,20 +1,26 @@
 # ACS Policy GitOps
 
+Automated ACS security policy management using ArgoCD and GitOps workflow.
+
 ## Repository Structure
 ```
-policies/
-├── dev/                    # Development environment policies
-│   ├── 30-day-scan-age.yml
-│   └── policy-states.yml
-└── prod/                   # Production environment policies
-    ├── 30-day-scan-age.yml
-    └── policy-states.yml
+├── argocd/                 # ArgoCD applications
+├── policies/               # ACS security policies
+│   ├── dev/               # Development policies
+│   └── prod/              # Production policies (stricter)
+├── precheck/              # Policy validation
+├── install-argocd.sh      # ArgoCD installation
+├── complete-setup.sh      # Full setup script
+└── cleanup-all.sh         # Cleanup script
 ```
 
-## Usage
-1. Add policies as YAML files in environment directories
-2. Update policy-states.yml to enable/disable policies
-3. Push to trigger automated deployment
+## Quick Start
+```bash
+export ACS_TOKEN="your-acs-token"
+./complete-setup.sh
+```
 
-## GitHub Secrets Required
-- `ACS_TOKEN`: ACS Central API token
+## Policies Managed
+- **30-Day Scan Age**: Image scan freshness
+- **No Privileged Containers**: Block privileged access
+- **No Latest Image Tags**: Enforce specific tags
