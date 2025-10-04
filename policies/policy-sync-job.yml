@@ -50,6 +50,17 @@ spec:
                   -d "$policy_json" \
                   "$ACS_CENTRAL_URL/v1/policies")
                 
+                # If policy exists, try updating it
+                if echo "$response" | grep -q "already exists"; then
+                  policy_id=$(echo "$policy_json" | jq -r '.id')
+                  echo "Policy exists, updating..."
+                  response=$(curl -k -s -X PUT \
+                    -H "Authorization: Bearer $ACS_TOKEN" \
+                    -H "Content-Type: application/json" \
+                    -d "$policy_json" \
+                    "$ACS_CENTRAL_URL/v1/policies/$policy_id")
+                fi
+                
                 echo "ACS Response: $response"
               fi
             fi

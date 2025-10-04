@@ -7,8 +7,7 @@ resources:
 configMapGenerator:
 - name: acs-policies
   files:
-  - container-security-policy.yml
-  - privileged-container-policy.yml
+  - docker-policy.yml
 
 generatorOptions:
   disableNameSuffixHash: false
