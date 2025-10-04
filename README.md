@@ -31,3 +31,38 @@ export ACS_TOKEN="your-acs-token"
 2. Push to GitHub master branch
 3. ArgoCD automatically syncs to Kubernetes
 4. Policy sync job pushes changes to ACS Central
+
+## Ansible Automation
+
+Complete automation for ACS Policy GitOps pipeline management.
+
+### Quick Start with Ansible
+```bash
+# Install dependencies
+pip install ansible kubernetes
+cd ansible/
+ansible-galaxy collection install -r requirements.yml
+
+# Set ACS token and run complete setup
+export ACS_TOKEN="your-acs-token"
+ansible-playbook setup-gitops-pipeline.yml
+```
+
+### Create New Policies
+```bash
+# Basic policy
+ansible-playbook create-new-policy.yml -e policy_name="My Security Policy"
+
+# Advanced policy with custom settings
+ansible-playbook create-new-policy.yml \
+  -e policy_name="No Root Containers" \
+  -e policy_severity="CRITICAL_SEVERITY" \
+  -e field_values='["runAsNonRoot=false"]'
+```
+
+### Cleanup Everything
+```bash
+ansible-playbook cleanup-gitops-pipeline.yml -e confirm_cleanup=yes
+```
+
+See `ansible/README.md` for detailed documentation.

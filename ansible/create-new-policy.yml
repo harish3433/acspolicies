@@ -1,0 +1,107 @@
+---
+- name: Create New ACS Policy in GitOps Pipeline
+  hosts: localhost
+  gather_facts: false
+  vars:
+    policy_name: "{{ policy_name | default('new-security-policy') }}"
+    policy_description: "{{ policy_description | default('New security policy created via Ansible') }}"
+    policy_severity: "{{ policy_severity | default('HIGH_SEVERITY') }}"
+    policy_lifecycle: "{{ policy_lifecycle | default(['DEPLOY']) }}"
+    policy_categories: "{{ policy_categories | default(['Security Best Practices']) }}"
+    field_name: "{{ field_name | default('Container Security Context') }}"
+    field_values: "{{ field_values | default(['runAsNonRoot=false']) }}"
+    git_commit_message: "{{ git_commit_message | default('Add new policy via Ansible') }}"
+    
+  tasks:
+    - name: Generate policy ID
+      set_fact:
+        policy_id: "{{ ansible_date_time.epoch | to_uuid }}"
+
+    - name: Create policy file content
+      set_fact:
+        policy_content: |
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: {{ policy_name | lower | regex_replace('[^a-z0-9-]', '-') }}
+          data:
+            policy.json: |
+              {
+                "name": "{{ policy_name }}",
+                "description": "{{ policy_description }}",
+                "rationale": "{{ policy_description }}",
+                "remediation": "Follow security best practices",
+                "disabled": false,
+                "categories": {{ policy_categories | to_json }},
+                "lifecycleStages": {{ policy_lifecycle | to_json }},
+                "eventSource": "NOT_APPLICABLE",
+                "exclusions": [],
+                "scope": [],
+                "severity": "{{ policy_severity }}",
+                "enforcementActions": [],
+                "notifiers": [],
+                "policyVersion": "1.0",
+                "policySections": [
+                  {
+                    "sectionName": "Rule 1",
+                    "policyGroups": [
+                      {
+                        "fieldName": "{{ field_name }}",
+                        "booleanOperator": "OR",
+                        "negate": false,
+                        "values": [
+                          {% for value in field_values %}
+                          {"value": "{{ value }}"}{% if not loop.last %},{% endif %}
+                          {% endfor %}
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                "mitreAttackVectors": [],
+                "criteriaLocked": false,
+                "mitreVectorsLocked": false,
+                "isDefault": false,
+                "source": "IMPERATIVE"
+              }
+
+    - name: Create policy file
+      copy:
+        content: "{{ policy_content }}"
+        dest: "./policies/{{ policy_name | lower | regex_replace('[^a-z0-9-]', '-') }}.yml"
+
+    - name: Update kustomization.yml
+      lineinfile:
+        path: "./policies/kustomization.yml"
+        insertafter: "files:"
+        line: "  - {{ policy_name | lower | regex_replace('[^a-z0-9-]', '-') }}.yml"
+
+    - name: Git add changes
+      command: git add .
+      args:
+        chdir: "."
+
+    - name: Git commit changes
+      command: git commit -m "{{ git_commit_message }}"
+      args:
+        chdir: "."
+
+    - name: Git push changes
+      command: git push origin master
+      args:
+        chdir: "."
+
+    - name: Display success message
+      debug:
+        msg: |
+          ✅ New Policy Created Successfully!
+          
+          Policy Name: {{ policy_name }}
+          File: policies/{{ policy_name | lower | regex_replace('[^a-z0-9-]', '-') }}.yml
+          
+          GitOps Pipeline will:
+          1. Auto-sync within 3 minutes
+          2. Deploy to Kubernetes
+          3. Push to ACS Central
+          
+          Check ACS Central UI for the new policy!

@@ -1,0 +1,95 @@
+---
+- name: Cleanup ACS Policy GitOps Pipeline
+  hosts: localhost
+  gather_facts: false
+  vars:
+    confirm_cleanup: "{{ confirm_cleanup | default('no') }}"
+    
+  tasks:
+    - name: Confirm cleanup
+      fail:
+        msg: "Set confirm_cleanup=yes to proceed with cleanup"
+      when: confirm_cleanup != "yes"
+
+    - name: Delete ArgoCD applications
+      kubernetes.core.k8s:
+        state: absent
+        api_version: argoproj.io/v1alpha1
+        kind: Application
+        name: "{{ item }}"
+        namespace: argocd
+      loop:
+        - acs-policies
+        - acs-policy-precheck
+      ignore_errors: true
+
+    - name: Delete policy sync jobs
+      kubernetes.core.k8s:
+        state: absent
+        api_version: batch/v1
+        kind: Job
+        namespace: stackrox
+        label_selectors:
+          - app.kubernetes.io/instance=acs-policies
+      ignore_errors: true
+
+    - name: Delete policy ConfigMaps
+      kubernetes.core.k8s:
+        state: absent
+        api_version: v1
+        kind: ConfigMap
+        namespace: stackrox
+        label_selectors:
+          - app.kubernetes.io/instance=acs-policies
+      ignore_errors: true
+
+    - name: Delete ACS token secret
+      kubernetes.core.k8s:
+        state: absent
+        api_version: v1
+        kind: Secret
+        name: acs-token
+        namespace: stackrox
+      ignore_errors: true
+
+    - name: Delete ArgoCD instance
+      kubernetes.core.k8s:
+        state: absent
+        api_version: argoproj.io/v1alpha1
+        kind: ArgoCD
+        name: argocd
+        namespace: argocd
+      ignore_errors: true
+
+    - name: Delete ArgoCD namespace
+      kubernetes.core.k8s:
+        state: absent
+        api_version: v1
+        kind: Namespace
+        name: argocd
+      ignore_errors: true
+
+    - name: Delete stackrox namespace (optional)
+      kubernetes.core.k8s:
+        state: absent
+        api_version: v1
+        kind: Namespace
+        name: stackrox
+      when: cleanup_stackrox_namespace | default(false)
+      ignore_errors: true
+
+    - name: Display cleanup completion
+      debug:
+        msg: |
+          ✅ GitOps Pipeline Cleanup Complete!
+          
+          Removed:
+          - ArgoCD applications
+          - Policy sync jobs
+          - Policy ConfigMaps  
+          - ACS token secret
+          - ArgoCD instance
+          - ArgoCD namespace
+          
+          Note: stackrox namespace preserved (contains ACS Central)
+          To remove it, run with: -e cleanup_stackrox_namespace=true
