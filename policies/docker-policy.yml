@@ -6,7 +6,7 @@ data:
   policy.json: |
     {
 
-      "name": "🔥 GITOPS TEST - docker policy",
+      "name": "🚀 AUTO-SYNC TEST - docker policy",
       "description": "",
       "rationale": "",
       "remediation": "",
