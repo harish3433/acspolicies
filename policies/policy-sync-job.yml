@@ -9,7 +9,7 @@ spec:
     spec:
       containers:
       - name: policy-sync
-        image: curlimages/curl:latest
+        image: registry.access.redhat.com/ubi8/ubi-minimal:latest
         env:
         - name: ACS_TOKEN
           valueFrom:
@@ -17,31 +17,38 @@ spec:
               name: acs-token
               key: token
         - name: ACS_CENTRAL_URL
-          value: "https://central-stackrox.apps.prince-cluster.ocp02.demo"
-        volumeMounts:
-        - name: policies-dev
-          mountPath: /policies-dev
-        - name: policies-prod
-          mountPath: /policies-prod
-        command: ["/bin/sh"]
+          value: "https://central-rhacs-operator.apps.prince-cluster.ocp02.demo"
+        command: ["/bin/bash"]
         args:
         - -c
         - |
-          echo "Syncing policies to ACS Central..."
-          for policy in /policies-dev/*.yml; do
-            echo "Processing $policy"
-            curl -k -X POST \
-              -H "Authorization: Bearer $ACS_TOKEN" \
-              -H "Content-Type: application/json" \
-              -d @"$policy" \
-              "$ACS_CENTRAL_URL/v1/policies" || echo "Policy sync failed for $policy"
-          done
+          microdnf install -y curl
+          echo "Syncing policies to ACS Central at $ACS_CENTRAL_URL"
+          
+          # Test connection
+          curl -k -s "$ACS_CENTRAL_URL/v1/ping" || exit 1
+          
+          # Update the 30-day scan policy
+          curl -k -X PUT \
+            -H "Authorization: Bearer $ACS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "id": "a3eb6dbe-e9ca-451a-919b-216cf7ee11f5",
+              "name": "UPDATED-30-Day Scan Age Policy",
+              "description": "🔥 LIVE GITOPS TEST - Alert on deployments with images that havent been scanned in 30 days",
+              "severity": "CRITICAL_SEVERITY",
+              "disabled": false,
+              "categories": ["Security Best Practices", "Supply Chain Security"],
+              "lifecycleStages": ["DEPLOY"],
+              "policyVersion": "1.1",
+              "policySections": [{
+                "policyGroups": [{
+                  "fieldName": "Image Scan Age",
+                  "values": [{"value": "30"}]
+                }]
+              }]
+            }' \
+            "$ACS_CENTRAL_URL/v1/policies/a3eb6dbe-e9ca-451a-919b-216cf7ee11f5"
+          
           echo "Policy sync completed"
-      volumes:
-      - name: policies-dev
-        configMap:
-          name: acs-policies-dev
-      - name: policies-prod
-        configMap:
-          name: acs-policies-prod
       restartPolicy: OnFailure

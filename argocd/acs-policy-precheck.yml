@@ -9,7 +9,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/harish3433/acspolicies.git
-    targetRevision: HEAD
+    targetRevision: master
     path: precheck
   destination:
     server: https://kubernetes.default.svc
