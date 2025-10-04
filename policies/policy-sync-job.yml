@@ -18,37 +18,46 @@ spec:
               key: token
         - name: ACS_CENTRAL_URL
           value: "https://central-rhacs-operator.apps.prince-cluster.ocp02.demo"
+        volumeMounts:
+        - name: policies
+          mountPath: /policies
         command: ["/bin/bash"]
         args:
         - -c
         - |
-          microdnf install -y curl
-          echo "Syncing policies to ACS Central at $ACS_CENTRAL_URL"
+          microdnf install -y curl jq
+          echo "Syncing policies to ACS Central..."
           
-          # Test connection
-          curl -k -s "$ACS_CENTRAL_URL/v1/ping" || exit 1
+          # Test ACS connection
+          if ! curl -k -s "$ACS_CENTRAL_URL/v1/ping" | grep -q "ok"; then
+            echo "Cannot connect to ACS Central"
+            exit 1
+          fi
           
-          # Update the 30-day scan policy
-          curl -k -X PUT \
-            -H "Authorization: Bearer $ACS_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "id": "a3eb6dbe-e9ca-451a-919b-216cf7ee11f5",
-              "name": "UPDATED-30-Day Scan Age Policy",
-              "description": "🔥 LIVE GITOPS TEST - Alert on deployments with images that havent been scanned in 30 days",
-              "severity": "CRITICAL_SEVERITY",
-              "disabled": false,
-              "categories": ["Security Best Practices", "Supply Chain Security"],
-              "lifecycleStages": ["DEPLOY"],
-              "policyVersion": "1.1",
-              "policySections": [{
-                "policyGroups": [{
-                  "fieldName": "Image Scan Age",
-                  "values": [{"value": "30"}]
-                }]
-              }]
-            }' \
-            "$ACS_CENTRAL_URL/v1/policies/a3eb6dbe-e9ca-451a-919b-216cf7ee11f5"
+          # Process each policy file
+          for policy_file in /policies/*.yml; do
+            if [[ -f "$policy_file" ]]; then
+              echo "Processing $policy_file"
+              
+              # Extract policy JSON from ConfigMap
+              policy_json=$(grep -A 1000 'policy.json:' "$policy_file" | sed '1d' | sed 's/^    //')
+              
+              if [[ -n "$policy_json" ]]; then
+                echo "Creating/updating policy in ACS..."
+                response=$(curl -k -s -X POST \
+                  -H "Authorization: Bearer $ACS_TOKEN" \
+                  -H "Content-Type: application/json" \
+                  -d "$policy_json" \
+                  "$ACS_CENTRAL_URL/v1/policies")
+                
+                echo "ACS Response: $response"
+              fi
+            fi
+          done
           
-          echo "Policy sync completed"
+          echo "Policy sync completed successfully"
+      volumes:
+      - name: policies
+        configMap:
+          name: acs-policies
       restartPolicy: OnFailure

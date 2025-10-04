@@ -6,8 +6,10 @@ Automated ACS security policy management using ArgoCD and GitOps workflow.
 ```
 ├── argocd/                 # ArgoCD applications
 ├── policies/               # ACS security policies
-│   ├── dev/               # Development policies
-│   └── prod/              # Production policies (stricter)
+│   ├── container-security-policy.yml
+│   ├── privileged-container-policy.yml
+│   ├── policy-sync-job.yml
+│   └── kustomization.yml
 ├── precheck/              # Policy validation
 ├── install-argocd.sh      # ArgoCD installation
 ├── complete-setup.sh      # Full setup script
@@ -21,6 +23,11 @@ export ACS_TOKEN="your-acs-token"
 ```
 
 ## Policies Managed
-- **30-Day Scan Age**: Image scan freshness
+- **Container Security Best Practices**: No root user, read-only filesystem
 - **No Privileged Containers**: Block privileged access
-- **No Latest Image Tags**: Enforce specific tags
+
+## GitOps Workflow
+1. Make changes to policies in `policies/` folder
+2. Push to GitHub master branch
+3. ArgoCD automatically syncs to Kubernetes
+4. Policy sync job pushes changes to ACS Central

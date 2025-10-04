@@ -5,11 +5,12 @@ resources:
 - policy-sync-job.yml
 
 configMapGenerator:
-- name: acs-policies-dev
+- name: acs-policies
   files:
-  - dev/30-day-scan-age.yml
-  - dev/policy-states.yml
-- name: acs-policies-prod  
-  files:
-  - prod/30-day-scan-age.yml
-  - prod/policy-states.yml
+  - container-security-policy.yml
+  - privileged-container-policy.yml
+
+generatorOptions:
+  disableNameSuffixHash: false
+  labels:
+    app.kubernetes.io/instance: acs-policies

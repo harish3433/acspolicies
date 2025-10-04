@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: privileged-container-policy
+data:
+  policy.json: |
+    {
+      "name": "No Privileged Containers",
+      "description": "Block containers running with privileged access",
+      "rationale": "Privileged containers have access to host resources and pose security risks",
+      "remediation": "Remove privileged: true from container securityContext",
+      "disabled": false,
+      "categories": ["Security Best Practices", "Container Security"],
+      "lifecycleStages": ["DEPLOY"],
+      "eventSource": "NOT_APPLICABLE",
+      "exclusions": [],
+      "scope": [],
+      "severity": "CRITICAL_SEVERITY",
+      "enforcementActions": [],
+      "notifiers": [],
+      "policyVersion": "1.0",
+      "policySections": [
+        {
+          "sectionName": "Container Configuration",
+          "policyGroups": [
+            {
+              "fieldName": "Privileged Container",
+              "booleanOperator": "OR",
+              "negate": false,
+              "values": [
+                {"value": "true"}
+              ]
+            }
+          ]
+        }
+      ],
+      "mitreAttackVectors": ["TA0004"],
+      "criteriaLocked": false,
+      "mitreVectorsLocked": false,
+      "isDefault": false,
+      "source": "IMPERATIVE"
+    }
