@@ -5,7 +5,7 @@ metadata:
 data:
   policy.json: |
     {
-      "name": "Container Security Best Practices",
+      "name": "🔥 GITOPS TEST - Container Security Best Practices",
       "description": "Enforce container security standards - no root user, read-only filesystem",
       "rationale": "Running containers as root or with writable filesystem increases security risks",
       "remediation": "Set runAsNonRoot: true and readOnlyRootFilesystem: true in securityContext",
@@ -35,7 +35,7 @@ data:
           ]
         }
       ],
-      "mitreAttackVectors": ["TA0004"],
+      "mitreAttackVectors": [],
       "criteriaLocked": false,
       "mitreVectorsLocked": false,
       "isDefault": false,

@@ -34,7 +34,7 @@ data:
           ]
         }
       ],
-      "mitreAttackVectors": ["TA0004"],
+      "mitreAttackVectors": [],
       "criteriaLocked": false,
       "mitreVectorsLocked": false,
       "isDefault": false,
