@@ -5,7 +5,7 @@ metadata:
 data:
   policy.json: |
     {
-      "id": "7204948e-1a9c-475f-a853-42254ebe900f",
+
       "name": "🔥 GITOPS TEST - docker policy",
       "description": "",
       "rationale": "",
