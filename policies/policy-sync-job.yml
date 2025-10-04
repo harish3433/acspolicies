@@ -9,7 +9,7 @@ spec:
     spec:
       containers:
       - name: policy-sync
-        image: quay.io/ansible/ansible-runner:latest
+        image: curlimages/curl:latest
         env:
         - name: ACS_TOKEN
           valueFrom:
@@ -17,23 +17,31 @@ spec:
               name: acs-token
               key: token
         - name: ACS_CENTRAL_URL
-          value: "https://central-stackrox.apps.cluster.local"
+          value: "https://central-stackrox.apps.prince-cluster.ocp02.demo"
         volumeMounts:
-        - name: policies
-          mountPath: /policies
-        - name: playbook
-          mountPath: /runner
+        - name: policies-dev
+          mountPath: /policies-dev
+        - name: policies-prod
+          mountPath: /policies-prod
         command: ["/bin/sh"]
         args:
         - -c
         - |
-          cd /runner
-          ansible-playbook acs-policy-sync.yml -e "acs_token=$ACS_TOKEN" -e "acs_central_url=$ACS_CENTRAL_URL"
+          echo "Syncing policies to ACS Central..."
+          for policy in /policies-dev/*.yml; do
+            echo "Processing $policy"
+            curl -k -X POST \
+              -H "Authorization: Bearer $ACS_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d @"$policy" \
+              "$ACS_CENTRAL_URL/v1/policies" || echo "Policy sync failed for $policy"
+          done
+          echo "Policy sync completed"
       volumes:
-      - name: policies
+      - name: policies-dev
         configMap:
           name: acs-policies-dev
-      - name: playbook
+      - name: policies-prod
         configMap:
-          name: ansible-playbook
+          name: acs-policies-prod
       restartPolicy: OnFailure
