@@ -5,30 +5,36 @@ metadata:
 data:
   policy.json: |
     {
-      "name": "🔥 WORKING POLICY - docker policy",
-      "description": "Policy created via Ansible automation",
-      "rationale": "Automated policy management via GitOps",
-      "remediation": "Follow security best practices",
+      "name": "docker",
+      "description": "",
+      "rationale": "",
+      "remediation": "",
       "disabled": false,
-      "categories": ["Anomalous Activity"],
-      "lifecycleStages": ["BUILD"],
+      "categories": [
+        "Anomalous Activity"
+      ],
+      "lifecycleStages": [
+        "BUILD"
+      ],
       "eventSource": "NOT_APPLICABLE",
       "exclusions": [],
       "scope": [],
       "severity": "CRITICAL_SEVERITY",
       "enforcementActions": [],
       "notifiers": [],
-      "policyVersion": "1.0",
+      "policyVersion": "1.1",
       "policySections": [
         {
           "sectionName": "Rule 1",
           "policyGroups": [
             {
-              "fieldName": "Image Remote",
+              "fieldName": "Image Registry",
               "booleanOperator": "OR",
               "negate": false,
               "values": [
-                {"value": "registry-1.docker.io/babbalrai"}
+                {
+                  "value": "registry-1.docker.io/babbalrai"
+                }
               ]
             }
           ]
