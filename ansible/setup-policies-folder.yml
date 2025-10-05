@@ -1,0 +1,171 @@
+---
+- name: Setup Policies Folder Structure
+  hosts: localhost
+  gather_facts: false
+  vars:
+    policies_folder: "{{ playbook_dir }}/../policies"
+    
+  tasks:
+    - name: Create policies directory
+      file:
+        path: "{{ policies_folder }}"
+        state: directory
+
+    - name: Create docker policy
+      copy:
+        content: |
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: docker-policy
+          data:
+            policy.json: |
+              {
+                "name": "🚀 ANSIBLE SETUP - docker policy",
+                "description": "Policy created via Ansible automation",
+                "rationale": "Automated policy management via GitOps",
+                "remediation": "Follow security best practices",
+                "disabled": false,
+                "categories": ["Anomalous Activity"],
+                "lifecycleStages": ["BUILD"],
+                "eventSource": "NOT_APPLICABLE",
+                "exclusions": [],
+                "scope": [],
+                "severity": "CRITICAL_SEVERITY",
+                "enforcementActions": [],
+                "notifiers": [],
+                "policyVersion": "1.0",
+                "policySections": [
+                  {
+                    "sectionName": "Rule 1",
+                    "policyGroups": [
+                      {
+                        "fieldName": "Image Remote",
+                        "booleanOperator": "OR",
+                        "negate": false,
+                        "values": [
+                          {"value": "registry-1.docker.io/babbalrai"}
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                "mitreAttackVectors": [],
+                "criteriaLocked": false,
+                "mitreVectorsLocked": false,
+                "isDefault": false,
+                "source": "IMPERATIVE"
+              }
+        dest: "{{ policies_folder }}/docker-policy.yml"
+
+    - name: Create policy sync job
+      copy:
+        content: |
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: acs-policy-sync
+            annotations:
+              argocd.argoproj.io/hook: PostSync
+          spec:
+            template:
+              spec:
+                containers:
+                - name: policy-sync
+                  image: registry.access.redhat.com/ubi8/ubi-minimal:latest
+                  env:
+                  - name: ACS_TOKEN
+                    valueFrom:
+                      secretKeyRef:
+                        name: acs-token
+                        key: token
+                  - name: ACS_CENTRAL_URL
+                    value: "https://central-rhacs-operator.apps.prince-cluster.ocp02.demo"
+                  volumeMounts:
+                  - name: policies
+                    mountPath: /policies
+                  command: ["/bin/bash"]
+                  args:
+                  - -c
+                  - |
+                    microdnf install -y curl jq
+                    echo "Syncing policies to ACS Central..."
+                    
+                    if ! curl -k -s "$ACS_CENTRAL_URL/v1/ping" | grep -q "ok"; then
+                      echo "Cannot connect to ACS Central"
+                      exit 1
+                    fi
+                    
+                    for policy_file in /policies/*.yml; do
+                      if [[ -f "$policy_file" ]]; then
+                        echo "Processing $policy_file"
+                        policy_json=$(grep -A 1000 'policy.json:' "$policy_file" | sed '1d' | sed 's/^    //')
+                        
+                        if [[ -n "$policy_json" ]]; then
+                          echo "Creating/updating policy in ACS..."
+                          response=$(curl -k -s -X POST \
+                            -H "Authorization: Bearer $ACS_TOKEN" \
+                            -H "Content-Type: application/json" \
+                            -d "$policy_json" \
+                            "$ACS_CENTRAL_URL/v1/policies")
+                          
+                          if echo "$response" | grep -q "already exists"; then
+                            policy_id=$(echo "$policy_json" | jq -r '.id')
+                            echo "Policy exists, updating..."
+                            response=$(curl -k -s -X PUT \
+                              -H "Authorization: Bearer $ACS_TOKEN" \
+                              -H "Content-Type: application/json" \
+                              -d "$policy_json" \
+                              "$ACS_CENTRAL_URL/v1/policies/$policy_id")
+                          fi
+                          
+                          echo "ACS Response: $response"
+                        fi
+                      fi
+                    done
+                    
+                    echo "Policy sync completed successfully"
+                volumes:
+                - name: policies
+                  configMap:
+                    name: acs-policies
+                restartPolicy: OnFailure
+        dest: "{{ policies_folder }}/policy-sync-job.yml"
+
+    - name: Create kustomization file
+      copy:
+        content: |
+          apiVersion: kustomize.config.k8s.io/v1beta1
+          kind: Kustomization
+
+          resources:
+          - policy-sync-job.yml
+
+          configMapGenerator:
+          - name: acs-policies
+            files:
+            - docker-policy.yml
+
+          generatorOptions:
+            disableNameSuffixHash: false
+            labels:
+              app.kubernetes.io/instance: acs-policies
+        dest: "{{ policies_folder }}/kustomization.yml"
+
+    - name: Display policies folder setup
+      debug:
+        msg: |
+          ✅ Policies Folder Setup Complete!
+          
+          📁 Location: {{ policies_folder }}
+          
+          📝 Files Created:
+          - docker-policy.yml (sample policy)
+          - policy-sync-job.yml (sync job)
+          - kustomization.yml (kustomize config)
+          
+          🔄 Next Steps:
+          1. Run main setup: ansible-playbook setup-gitops-pipeline.yml
+          2. Edit policies in {{ policies_folder }}/
+          3. Git commit and push changes
+          4. ArgoCD will auto-sync to ACS Central

@@ -15,13 +15,27 @@ export ACS_TOKEN="your-acs-token"
 
 ## Usage
 
-### 1. Complete Setup
+### 1. Setup Policies Folder
 ```bash
 cd ansible/
+ansible-playbook setup-policies-folder.yml
+```
+
+### 2. Complete Pipeline Setup
+```bash
+# Quick setup (recommended)
+ansible-playbook setup-gitops-pipeline-quick.yml
+
+# Full setup with validation
 ansible-playbook setup-gitops-pipeline.yml
 ```
 
-### 2. Create New Policy
+### 3. Show ArgoCD Login Details
+```bash
+ansible-playbook show-argocd-login.yml
+```
+
+### 4. Create New Policy
 ```bash
 # Basic policy
 ansible-playbook create-new-policy.yml -e policy_name="My Security Policy"
@@ -35,9 +49,24 @@ ansible-playbook create-new-policy.yml \
   -e field_values='["runAsNonRoot=false"]'
 ```
 
-### 3. Cleanup Everything
+### 5. Cleanup Everything
 ```bash
 ansible-playbook cleanup-gitops-pipeline.yml -e confirm_cleanup=yes
+```
+
+## Complete Workflow
+
+```bash
+# 1. Setup everything
+export ACS_TOKEN="your-token"
+ansible-playbook setup-policies-folder.yml
+ansible-playbook setup-gitops-pipeline-quick.yml
+
+# 2. Get login details
+ansible-playbook show-argocd-login.yml
+
+# 3. Create new policies as needed
+ansible-playbook create-new-policy.yml -e policy_name="My Policy"
 ```
 
 ## Policy Parameters

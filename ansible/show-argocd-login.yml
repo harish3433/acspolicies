@@ -1,0 +1,36 @@
+---
+- name: Show ArgoCD Login Details
+  hosts: localhost
+  gather_facts: false
+  
+  tasks:
+    - name: Get ArgoCD route
+      kubernetes.core.k8s_info:
+        api_version: route.openshift.io/v1
+        kind: Route
+        name: argocd-server
+        namespace: argocd
+      register: argocd_route
+
+    - name: Get ArgoCD admin password
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Secret
+        name: argocd-cluster
+        namespace: argocd
+      register: argocd_secret
+
+    - name: Display ArgoCD login details
+      debug:
+        msg: |
+          🌐 ArgoCD UI Login Details:
+          
+          URL: https://{{ argocd_route.resources[0].spec.host | default('Check: oc get route argocd-server -n argocd') }}
+          Username: admin
+          Password: {{ argocd_secret.resources[0].data['admin.password'] | b64decode | default('Check: oc get secret argocd-cluster -n argocd -o jsonpath="{.data.admin\.password}" | base64 -d') }}
+          
+          📋 Applications to check:
+          - acs-policies (Policy sync)
+          - acs-policy-precheck (Validation)
+          
+          🎯 ACS Central: https://central-rhacs-operator.apps.prince-cluster.ocp02.demo
