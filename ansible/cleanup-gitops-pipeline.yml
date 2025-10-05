@@ -2,14 +2,12 @@
 - name: Cleanup ACS Policy GitOps Pipeline
   hosts: localhost
   gather_facts: false
-  vars:
-    confirm_cleanup: "{{ confirm_cleanup | default('no') }}"
     
   tasks:
     - name: Confirm cleanup
       fail:
         msg: "Set confirm_cleanup=yes to proceed with cleanup"
-      when: confirm_cleanup != "yes"
+      when: (confirm_cleanup | default('no')) != "yes"
 
     - name: Delete ArgoCD applications
       kubernetes.core.k8s:
@@ -23,24 +21,16 @@
         - acs-policy-precheck
       ignore_errors: true
 
-    - name: Delete policy sync jobs
+    - name: Delete all jobs in stackrox namespace
       kubernetes.core.k8s:
         state: absent
         api_version: batch/v1
         kind: Job
         namespace: stackrox
-        label_selectors:
-          - app.kubernetes.io/instance=acs-policies
       ignore_errors: true
 
-    - name: Delete policy ConfigMaps
-      kubernetes.core.k8s:
-        state: absent
-        api_version: v1
-        kind: ConfigMap
-        namespace: stackrox
-        label_selectors:
-          - app.kubernetes.io/instance=acs-policies
+    - name: Delete all ConfigMaps with acs-policies prefix
+      shell: oc delete configmaps -n stackrox -l app.kubernetes.io/instance=acs-policies --ignore-not-found=true
       ignore_errors: true
 
     - name: Delete ACS token secret
@@ -52,12 +42,34 @@
         namespace: stackrox
       ignore_errors: true
 
+    - name: Delete ArgoCD ConfigMap
+      kubernetes.core.k8s:
+        state: absent
+        api_version: v1
+        kind: ConfigMap
+        name: argocd-cmd-params-cm
+        namespace: argocd
+      ignore_errors: true
+
     - name: Delete ArgoCD instance
       kubernetes.core.k8s:
         state: absent
         api_version: argoproj.io/v1alpha1
         kind: ArgoCD
         name: argocd
+        namespace: argocd
+      ignore_errors: true
+
+    - name: Wait for ArgoCD cleanup
+      pause:
+        seconds: 30
+
+    - name: Delete ArgoCD operator subscription
+      kubernetes.core.k8s:
+        state: absent
+        api_version: operators.coreos.com/v1alpha1
+        kind: Subscription
+        name: argocd-operator
         namespace: argocd
       ignore_errors: true
 
@@ -89,6 +101,7 @@
           - Policy ConfigMaps  
           - ACS token secret
           - ArgoCD instance
+          - ArgoCD operator
           - ArgoCD namespace
           
           Note: stackrox namespace preserved (contains ACS Central)

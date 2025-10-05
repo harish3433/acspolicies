@@ -28,18 +28,14 @@ spec:
           microdnf install -y curl jq
           echo "Syncing policies to ACS Central..."
           
-          # Test ACS connection
           if ! curl -k -s "$ACS_CENTRAL_URL/v1/ping" | grep -q "ok"; then
             echo "Cannot connect to ACS Central"
             exit 1
           fi
           
-          # Process each policy file
           for policy_file in /policies/*.yml; do
             if [[ -f "$policy_file" ]]; then
               echo "Processing $policy_file"
-              
-              # Extract policy JSON from ConfigMap
               policy_json=$(grep -A 1000 'policy.json:' "$policy_file" | sed '1d' | sed 's/^    //')
               
               if [[ -n "$policy_json" ]]; then
@@ -50,7 +46,6 @@ spec:
                   -d "$policy_json" \
                   "$ACS_CENTRAL_URL/v1/policies")
                 
-                # If policy exists, try updating it
                 if echo "$response" | grep -q "already exists"; then
                   policy_id=$(echo "$policy_json" | jq -r '.id')
                   echo "Policy exists, updating..."

@@ -5,25 +5,20 @@ metadata:
 data:
   policy.json: |
     {
-
-      "name": "🚀 AUTO-SYNC TEST - docker policy",
-      "description": "",
-      "rationale": "",
-      "remediation": "",
+      "name": "🚀 ANSIBLE SETUP - docker policy",
+      "description": "Policy created via Ansible automation",
+      "rationale": "Automated policy management via GitOps",
+      "remediation": "Follow security best practices",
       "disabled": false,
-      "categories": [
-        "Anomalous Activity"
-      ],
-      "lifecycleStages": [
-        "BUILD"
-      ],
+      "categories": ["Anomalous Activity"],
+      "lifecycleStages": ["BUILD"],
       "eventSource": "NOT_APPLICABLE",
       "exclusions": [],
       "scope": [],
       "severity": "CRITICAL_SEVERITY",
       "enforcementActions": [],
       "notifiers": [],
-      "policyVersion": "1.1",
+      "policyVersion": "1.0",
       "policySections": [
         {
           "sectionName": "Rule 1",
@@ -33,9 +28,7 @@ data:
               "booleanOperator": "OR",
               "negate": false,
               "values": [
-                {
-                  "value": "registry-1.docker.io/babbalrai"
-                }
+                {"value": "registry-1.docker.io/babbalrai"}
               ]
             }
           ]
