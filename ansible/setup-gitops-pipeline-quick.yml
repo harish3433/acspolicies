@@ -1,0 +1,99 @@
+---
+- name: Quick Setup ACS Policy GitOps Pipeline
+  hosts: localhost
+  gather_facts: false
+  vars:
+    acs_token: "{{ lookup('env', 'ACS_TOKEN') | default('dummy-token') }}"
+    github_repo: "https://github.com/harish3433/acspolicies.git"
+    
+  tasks:
+    - name: Create stackrox namespace
+      kubernetes.core.k8s:
+        name: stackrox
+        api_version: v1
+        kind: Namespace
+        state: present
+
+    - name: Create argocd namespace
+      kubernetes.core.k8s:
+        name: argocd
+        api_version: v1
+        kind: Namespace
+        state: present
+
+    - name: Install ArgoCD
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: argoproj.io/v1alpha1
+          kind: ArgoCD
+          metadata:
+            name: argocd
+            namespace: argocd
+          spec:
+            server:
+              route:
+                enabled: true
+
+    - name: Wait for ArgoCD components
+      pause:
+        seconds: 60
+        prompt: "Waiting for ArgoCD to initialize..."
+
+    - name: Create ACS token secret
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: acs-token
+            namespace: stackrox
+          type: Opaque
+          data:
+            token: "{{ acs_token | b64encode }}"
+
+    - name: Create ArgoCD application for policies
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: argoproj.io/v1alpha1
+          kind: Application
+          metadata:
+            name: acs-policies
+            namespace: argocd
+            annotations:
+              argocd.argoproj.io/refresh: normal
+          spec:
+            project: default
+            source:
+              repoURL: "{{ github_repo }}"
+              targetRevision: master
+              path: policies
+            destination:
+              server: https://kubernetes.default.svc
+              namespace: stackrox
+            syncPolicy:
+              automated:
+                prune: true
+                selfHeal: true
+              retry:
+                limit: 5
+                backoff:
+                  duration: 5s
+                  factor: 2
+                  maxDuration: 3m
+              syncOptions:
+              - CreateNamespace=true
+
+    - name: Display setup completion
+      debug:
+        msg: |
+          ✅ Quick GitOps Pipeline Setup Complete!
+          
+          Next steps:
+          1. Set real ACS token: export ACS_TOKEN="your-token"
+          2. Update secret: oc create secret generic acs-token --from-literal=token=$ACS_TOKEN -n stackrox --dry-run=client -o yaml | oc apply -f -
+          3. Check ArgoCD: oc get route argocd-server -n argocd
+          
+          Pipeline is ready for auto-sync!

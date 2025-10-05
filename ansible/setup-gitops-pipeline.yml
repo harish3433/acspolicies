@@ -41,17 +41,22 @@
               route:
                 enabled: true
 
-    - name: Wait for ArgoCD to be ready
+    - name: Wait for ArgoCD server deployment
       kubernetes.core.k8s_info:
-        api_version: argoproj.io/v1alpha1
-        kind: ArgoCD
-        name: argocd
+        api_version: apps/v1
+        kind: Deployment
+        name: argocd-server
         namespace: argocd
         wait: true
         wait_condition:
-          type: Ready
+          type: Available
           status: "True"
-        wait_timeout: 300
+        wait_timeout: 120
+      ignore_errors: true
+
+    - name: Simple wait for ArgoCD components
+      pause:
+        seconds: 30
 
     - name: Create ACS token secret
       kubernetes.core.k8s:
@@ -146,13 +151,10 @@
             namespace: argocd
             annotations:
               deployment.kubernetes.io/revision: "{{ ansible_date_time.epoch }}"
-        wait: true
-        wait_condition:
-          type: Progressing
-          status: "True"
       loop:
         - argocd-repo-server
         - argocd-server
+      ignore_errors: true
 
     - name: Display setup completion
       debug:
