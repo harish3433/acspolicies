@@ -5,7 +5,7 @@ metadata:
 data:
   policy.json: |
     {
-      "name": "🚀 ANSIBLE SETUP - docker policy",
+      "name": "🔥 WORKING POLICY - docker policy",
       "description": "Policy created via Ansible automation",
       "rationale": "Automated policy management via GitOps",
       "remediation": "Follow security best practices",
