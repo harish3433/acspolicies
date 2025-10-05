@@ -1,6 +1,6 @@
 # ACS Policy GitOps Ansible Automation
 
-Ansible playbooks for complete ACS Policy GitOps pipeline management.
+Single comprehensive Ansible script for complete ACS Policy GitOps pipeline management.
 
 ## Prerequisites
 
@@ -13,100 +13,66 @@ ansible-galaxy collection install -r requirements.yml
 export ACS_TOKEN="your-acs-token"
 ```
 
-## Usage
+## Complete Setup (One Command)
 
-### 1. Setup Policies Folder
 ```bash
 cd ansible/
-ansible-playbook setup-policies-folder.yml
+export ACS_TOKEN="your-token"
+ansible-playbook setup-complete-gitops.yml
 ```
 
-### 2. Complete Pipeline Setup
+This single script will:
+- ✅ Create required namespaces
+- ✅ Install ArgoCD (if not exists)
+- ✅ Configure ACS token secret
+- ✅ Setup GitOps application
+- ✅ Show ArgoCD login details
+
+## Additional Scripts
+
+### Create New Policy
 ```bash
-# Quick setup (recommended)
-ansible-playbook setup-gitops-pipeline-quick.yml
-
-# Full setup with validation
-ansible-playbook setup-gitops-pipeline.yml
+ansible-playbook create-new-policy.yml -e policy_name="My Security Policy"
 ```
 
-### 3. Show ArgoCD Login Details
+### Show ArgoCD Login
 ```bash
 ansible-playbook show-argocd-login.yml
 ```
 
-### 4. Create New Policy
-```bash
-# Basic policy
-ansible-playbook create-new-policy.yml -e policy_name="My Security Policy"
-
-# Advanced policy
-ansible-playbook create-new-policy.yml \
-  -e policy_name="No Root Containers" \
-  -e policy_description="Block containers running as root" \
-  -e policy_severity="CRITICAL_SEVERITY" \
-  -e field_name="Container Security Context" \
-  -e field_values='["runAsNonRoot=false"]'
-```
-
-### 5. Cleanup Everything
+### Complete Cleanup
 ```bash
 ansible-playbook cleanup-gitops-pipeline.yml -e confirm_cleanup=yes
 ```
 
-## Complete Workflow
+## Policies Location
+
+📁 **Policies are in**: `../policies/` folder (workspace level)
+- `docker-policy.yml` - Sample policy
+- `policy-sync-job.yml` - Sync job
+- `kustomization.yml` - Kustomize config
+
+## GitOps Workflow
+
+1. **Edit policies** in `policies/` folder
+2. **Git commit and push** to master branch
+3. **ArgoCD auto-syncs** within 3 minutes
+4. **Policies appear** in ACS Central
+
+## Example Usage
 
 ```bash
-# 1. Setup everything
-export ACS_TOKEN="your-token"
-ansible-playbook setup-policies-folder.yml
-ansible-playbook setup-gitops-pipeline-quick.yml
+# Complete setup
+export ACS_TOKEN="eyJhbGciOiJSUzI1NiIs..."
+cd ansible/
+ansible-playbook setup-complete-gitops.yml
 
-# 2. Get login details
-ansible-playbook show-argocd-login.yml
+# Edit policy
+vim ../policies/docker-policy.yml
 
-# 3. Create new policies as needed
-ansible-playbook create-new-policy.yml -e policy_name="My Policy"
-```
+# Commit changes
+cd ..
+git add . && git commit -m "Update policy" && git push
 
-## Policy Parameters
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `policy_name` | new-security-policy | Policy display name |
-| `policy_description` | Auto-generated | Policy description |
-| `policy_severity` | HIGH_SEVERITY | CRITICAL/HIGH/MEDIUM/LOW_SEVERITY |
-| `policy_lifecycle` | ["DEPLOY"] | BUILD/DEPLOY/RUNTIME |
-| `policy_categories` | ["Security Best Practices"] | Policy categories |
-| `field_name` | Container Security Context | Policy field to check |
-| `field_values` | ["runAsNonRoot=false"] | Values to match |
-
-## Examples
-
-### Container Security Policy
-```bash
-ansible-playbook create-new-policy.yml \
-  -e policy_name="Container Security Standards" \
-  -e policy_description="Enforce container security best practices" \
-  -e field_name="Container Security Context" \
-  -e field_values='["runAsNonRoot=false","readOnlyRootFilesystem=false"]'
-```
-
-### Image Registry Policy  
-```bash
-ansible-playbook create-new-policy.yml \
-  -e policy_name="Approved Registry Only" \
-  -e policy_description="Only allow images from approved registries" \
-  -e field_name="Image Remote" \
-  -e field_values='["registry-1.docker.io/untrusted"]'
-```
-
-### Privileged Container Policy
-```bash
-ansible-playbook create-new-policy.yml \
-  -e policy_name="No Privileged Containers" \
-  -e policy_description="Block privileged container access" \
-  -e policy_severity="CRITICAL_SEVERITY" \
-  -e field_name="Privileged Container" \
-  -e field_values='["true"]'
+# Check ArgoCD UI (auto-provided after setup)
 ```

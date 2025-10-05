@@ -1,5 +1,5 @@
 ---
-- name: Setup ACS Policy GitOps Pipeline
+- name: Complete ACS Policy GitOps Setup
   hosts: localhost
   gather_facts: false
   vars:
@@ -13,21 +13,46 @@
         msg: "Please set ACS_TOKEN environment variable"
       when: acs_token == ""
 
-    - name: Create stackrox namespace
+    - name: Create namespaces
       kubernetes.core.k8s:
-        name: stackrox
+        name: "{{ item }}"
         api_version: v1
         kind: Namespace
         state: present
+      loop:
+        - stackrox
+        - argocd
 
-    - name: Create argocd namespace
-      kubernetes.core.k8s:
+    - name: Check if ArgoCD exists
+      kubernetes.core.k8s_info:
+        api_version: argoproj.io/v1alpha1
+        kind: ArgoCD
         name: argocd
-        api_version: v1
-        kind: Namespace
-        state: present
+        namespace: argocd
+      register: argocd_check
 
-    - name: Install ArgoCD
+    - name: Install ArgoCD operator (if not exists)
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: operators.coreos.com/v1alpha1
+          kind: Subscription
+          metadata:
+            name: argocd-operator
+            namespace: argocd
+          spec:
+            channel: stable
+            name: argocd-operator
+            source: operatorhub
+            sourceNamespace: openshift-marketplace
+      when: argocd_check.resources | length == 0
+
+    - name: Wait for operator
+      pause:
+        seconds: 30
+      when: argocd_check.resources | length == 0
+
+    - name: Install ArgoCD instance (if not exists)
       kubernetes.core.k8s:
         state: present
         definition:
@@ -40,23 +65,12 @@
             server:
               route:
                 enabled: true
+      when: argocd_check.resources | length == 0
 
-    - name: Wait for ArgoCD server deployment
-      kubernetes.core.k8s_info:
-        api_version: apps/v1
-        kind: Deployment
-        name: argocd-server
-        namespace: argocd
-        wait: true
-        wait_condition:
-          type: Available
-          status: "True"
-        wait_timeout: 120
-      ignore_errors: true
-
-    - name: Simple wait for ArgoCD components
+    - name: Wait for ArgoCD
       pause:
-        seconds: 30
+        seconds: 60
+      when: argocd_check.resources | length == 0
 
     - name: Create ACS token secret
       kubernetes.core.k8s:
@@ -71,7 +85,7 @@
           data:
             token: "{{ acs_token | b64encode }}"
 
-    - name: Configure ArgoCD for faster polling
+    - name: Configure ArgoCD for faster sync
       kubernetes.core.k8s:
         state: present
         definition:
@@ -82,7 +96,6 @@
             namespace: argocd
           data:
             repo.server.timeout.seconds: "60"
-            controller.repo.server.timeout.seconds: "60"
 
     - name: Create ArgoCD application for policies
       kubernetes.core.k8s:
@@ -117,55 +130,40 @@
               syncOptions:
               - CreateNamespace=true
 
-    - name: Create ArgoCD application for precheck
-      kubernetes.core.k8s:
-        state: present
-        definition:
-          apiVersion: argoproj.io/v1alpha1
-          kind: Application
-          metadata:
-            name: acs-policy-precheck
-            namespace: argocd
-          spec:
-            project: default
-            source:
-              repoURL: "{{ github_repo }}"
-              targetRevision: master
-              path: precheck
-            destination:
-              server: https://kubernetes.default.svc
-              namespace: stackrox
-            syncPolicy:
-              automated:
-                prune: true
-                selfHeal: true
+    - name: Get ArgoCD route
+      kubernetes.core.k8s_info:
+        api_version: route.openshift.io/v1
+        kind: Route
+        name: argocd-server
+        namespace: argocd
+      register: argocd_route
 
-    - name: Restart ArgoCD components
-      kubernetes.core.k8s:
-        state: present
-        definition:
-          apiVersion: apps/v1
-          kind: Deployment
-          metadata:
-            name: "{{ item }}"
-            namespace: argocd
-            annotations:
-              deployment.kubernetes.io/revision: "{{ ansible_date_time.epoch }}"
-      loop:
-        - argocd-repo-server
-        - argocd-server
-      ignore_errors: true
+    - name: Get ArgoCD admin password
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Secret
+        name: argocd-cluster
+        namespace: argocd
+      register: argocd_secret
 
     - name: Display setup completion
       debug:
         msg: |
-          ✅ ACS Policy GitOps Pipeline Setup Complete!
+          ✅ Complete ACS Policy GitOps Setup Finished!
           
-          ArgoCD URL: Check 'oc get route argocd-server -n argocd'
-          ACS Central: {{ acs_central_url }}
+          🌐 ArgoCD UI:
+          URL: https://{{ argocd_route.resources[0].spec.host | default('Check: oc get route argocd-server -n argocd') }}
+          Username: admin
+          Password: {{ argocd_secret.resources[0].data['admin.password'] | b64decode | default('Check: oc get secret argocd-cluster -n argocd -o jsonpath="{.data.admin\.password}" | base64 -d') }}
           
-          Your pipeline is ready:
-          1. Edit policies in GitHub repo
-          2. Push to master branch  
+          🎯 ACS Central: {{ acs_central_url }}
+          
+          📁 Policies Location: GitHub repo /policies folder
+          
+          🚀 GitOps Flow:
+          1. Edit policies in GitHub /policies folder
+          2. Push to master branch
           3. ArgoCD auto-syncs within 3 minutes
           4. Policies appear in ACS Central
+          
+          ✨ Your pipeline is ready!
